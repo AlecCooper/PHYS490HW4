@@ -9,12 +9,97 @@
 import json, argparse
 import torch.optim as optim
 import torch as torch
+import torch.nn.functional as func
 import numpy as np
 from os import path, mkdir
 from data_parse import Data
-from nn import Encoder, Decoder
+import nn as nn
 import matplotlib.pyplot as plt
 
+# Loss function
+def loss_func(z,x,mu,sigma, kl_term):
+
+    # BCE Loss
+    bce = func.binary_cross_entropy(torch.flatten(z),torch.flatten(x), reduction="sum")
+
+    # KL Loss
+    latent_dist = torch.normal(mu,sigma)
+    standard_dist = torch.randn_like(sigma)
+    kld = func.kl_div(latent_dist,standard_dist,reduction="sum")
+    #kld = 0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
+
+    return bce + kl_term*kld
+    #return bce
+
+# Main training loop
+def train(hyper, num_epochs, results):
+
+    # Create our model
+    vae = nn.VAE()
+
+    # Create our optimizer
+    optimizer = optim.Adam(vae.parameters(), lr=hyper["learning rate"])
+
+    # Import our data
+    print("Importing data.....")
+    data = Data(args.d,3000)
+    print("Done")
+
+    loss_vals = []
+
+    # Training loop
+    for epoch in range(1, num_epochs + 1):
+
+        # Clear our gradient buffer
+        optimizer.zero_grad()
+
+        # Clear gradients
+        vae.zero_grad()
+
+        # feed our inputs through the net
+        output, mu, sigma = vae(data.x_train)
+
+        # Target
+        x = data.x_train
+        x.requires_grad = False
+
+        # Calculate the loss
+        loss = loss_func(output, x, mu, sigma, hyper["kl term"])
+
+        # Graph our progress
+        loss_vals.append(loss)
+
+        # Backpropagate our loss
+        loss.backward()
+
+        optimizer.step()
+
+        # Sample and save
+        plot = sample(vae, mu, sigma)
+        plot.savefig(results + "/iterations/" + str(epoch) + ".pdf")
+
+        if args.v>=2:
+            if not ((epoch + 1) % hyper["display epochs"]):
+                print('Epoch [{}/{}]'.format(epoch, num_epochs) +\
+                    '\tTraining Loss: {:.4f}'.format(loss))
+
+    # Plot Results
+    plt.plot(range(num_epochs), loss_vals, label= "Loss", color="blue")
+    plt.savefig(results + "/loss.pdf")
+
+    print("Done!")
+    return vae, mu, sigma
+
+# Create samples from our trained model
+def sample(vae, mu, sigma):
+
+    data = vae.sample(mu, sigma)
+    data = data.detach().numpy()
+    data = data[0]
+    data = np.reshape(data,(-1,14))
+    plt.imshow(data)
+    return plt
+    
 if __name__ == "__main__":
 
     # Get Command Line Arguments
@@ -28,25 +113,30 @@ if __name__ == "__main__":
 
     # Check if the results directory exists, otherwise make one
     if not path.exists(args.r):
-        mkdir(args.results)
+        mkdir(args.r)
+        mkdir(args.r + "/iterations")
 
     # Hyperparameters from json file
     with open(args.p) as paramfile:
         hyper = json.load(paramfile)
 
-    # Create our model
-    encoder = Encoder()
-    decoder = Decoder()
+    # Our program loop runs while running is True
+    running = True
 
-    print("Importing data.....")
-    data = Data(args.d,3000)
-    print("Done")
+    # Main program loop
+    while running:
+        print("Enter t to enter training mode ")
+        print("Enter e to exit ")
+        print("Enter s to enter sample mode ")
+        command = input()
 
-    # Number of training epochs
-    num_epochs = hyper["num epochs"]
+        if command == "t":
+            vae, mu, sigma = train(hyper, args.n, args.r)
+        elif command == "s":
+            sample(vae,mu,sigma)
+        elif command == "e":
+            running = False
+        else:
+            print("Please enter a valid command")
 
-    # Training loop
-    for epoch in range(1, num_epochs + 1):
-
-        print("!")
 

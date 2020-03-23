@@ -22,6 +22,10 @@ class Data():
         x_data = np.genfromtxt(file_location,usecols=range(x_len),dtype=np.float32)
         y_data = np.genfromtxt(file_location,usecols=(x_len),dtype=np.uint8)
 
+        # Scale to between 0 and 1
+        x_data = x_data/255.0
+        y_data = y_data/255.0
+
         # Number of data points
         n_data = len(x_data)
 

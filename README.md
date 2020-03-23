@@ -58,9 +58,9 @@ The learning rate our neural net uses
 Whether or not to show the current epoch in the training loop
 
 ```
-"num epochs":10}
+"kl term":0.001}
 
 ```
-The number of epochs for our training loop
+The coefficent on the kl divergence for the loss function
 
 

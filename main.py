@@ -26,10 +26,8 @@ def loss_func(z,x,mu,sigma, kl_term):
     latent_dist = torch.normal(mu,sigma)
     standard_dist = torch.randn_like(sigma)
     kld = func.kl_div(latent_dist,standard_dist,reduction="sum")
-    #kld = 0.5 * torch.sum(1 + sigma - mu.pow(2) - sigma.exp())
 
     return bce + kl_term*kld
-    #return bce
 
 # Main training loop
 def train(hyper, num_epochs, results):
@@ -42,7 +40,7 @@ def train(hyper, num_epochs, results):
 
     # Import our data
     print("Importing data.....")
-    data = Data(args.d,3000)
+    data = Data(args.d)
     print("Done")
 
     loss_vals = []
@@ -67,7 +65,7 @@ def train(hyper, num_epochs, results):
         loss = loss_func(output, x, mu, sigma, hyper["kl term"])
 
         # Graph our progress
-        loss_vals.append(loss)
+        loss_vals.append(loss.item())
 
         # Backpropagate our loss
         loss.backward()
@@ -84,7 +82,9 @@ def train(hyper, num_epochs, results):
                     '\tTraining Loss: {:.4f}'.format(loss))
 
     # Plot Results
+    plt.clf()
     plt.plot(range(num_epochs), loss_vals, label= "Loss", color="blue")
+    plt.show()
     plt.savefig(results + "/loss.pdf")
 
     print("Done!")
